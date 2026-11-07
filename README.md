@@ -59,12 +59,13 @@ Then, in your world's settings:
 1. **Behavior Packs** → activate "Treasure Hunt".
 2. **Resource Packs** → activate "Treasure Hunt".
 
-This addon targets Minecraft **1.21.100 or newer** (needed for custom slash
-commands) and requires no experiment toggles on that version or later. If
-your game is older, update Minecraft; if items still show a missing-texture
-icon or scripts don't seem to run, double-check both packs are activated
-(not just imported) under the world's Behavior Packs **and** Resource Packs
-tabs.
+This addon targets Minecraft **1.20.0 or newer** and requires no experiment
+toggles. If real slash commands (`/th:admin` etc., see below) aren't
+available on your game version, the addon automatically falls back to
+chat-based shortcuts (`!thadmin` etc.) — either way nothing breaks. If
+items still show a missing-texture icon or scripts don't seem to run,
+double-check both packs are activated (not just imported) under the
+world's Behavior Packs **and** Resource Packs tabs.
 
 ## Setup (do this once per world)
 
@@ -74,7 +75,8 @@ tabs.
    /give @s th:admin_baton
    ```
 2. Right-click the **Treasure Hunt Admin Baton** to open the admin panel.
-   (You can also run `/th:admin` any time you have the tag.)
+   (You can also run `/th:admin`, or type `!thadmin` in chat if your game
+   version doesn't support custom slash commands yet.)
 3. **Manage Hunts → Create New Hunt** — give it a name. It becomes active
    automatically.
 4. **Manage Clues** — stand where you want a clue and choose
@@ -89,8 +91,8 @@ tabs.
 
 ## Playing
 
-- Give players a **Team Compass** (`/give <player> th:team_compass`) or let
-  them run `/th:team`.
+- Give players a **Team Compass** (`/give <player> th:team_compass`), or let
+  them run `/th:team` or type `!team` in chat.
 - If they're not on a team yet, they'll see a list of teams to join (or can
   create their own team on the spot).
 - Once on a team, the menu shows their current clue/riddle, and the
@@ -99,7 +101,8 @@ tabs.
 - Finding a location clue (walking into its radius) or typing the correct
   answer to a riddle automatically advances that team to the next clue,
   announces it to the server, and updates the scoreboard.
-- Anyone can check standings with `/th:board` or the Leaderboard button.
+- Anyone can check standings with `/th:board` (or `!board`) or the
+  Leaderboard button.
 
 ## Scattering teams with a shared final treasure
 
@@ -129,16 +132,18 @@ before joining the shared path, others can jump straight to a shared clue
 authoring order for the whole hunt; each team simply skips any clue that
 belongs to a different team.
 
-## Slash commands
+## Commands
 
-These are real custom commands (not chat triggers) — they autocomplete and
-work even with cheats off.
+The addon registers real slash commands when your game version supports them
+(autocomplete, work with cheats off), and always also accepts the matching
+chat shortcut as a guaranteed fallback — so it works everywhere, old game
+versions included.
 
-| Command | Who | Does |
-|---|---|---|
-| `/th:admin` | players with the `th_admin` tag | Open the admin panel |
-| `/th:team` | everyone | Open "join a team" / "my team" menu |
-| `/th:board` | everyone | Show the leaderboard |
+| Slash command | Chat fallback | Who | Does |
+|---|---|---|---|
+| `/th:admin` | `!thadmin` | players with the `th_admin` tag | Open the admin panel |
+| `/th:team` | `!team` | everyone | Open "join a team" / "my team" menu |
+| `/th:board` | `!board` | everyone | Show the leaderboard |
 
 ## Notes & tips
 
