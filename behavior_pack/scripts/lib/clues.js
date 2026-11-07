@@ -5,7 +5,7 @@ export function listClues(hunt) {
     return hunt.clues;
 }
 
-export function addLocationClue(hunt, { name, hint, location, dimensionId, radius }) {
+export function addLocationClue(hunt, { name, hint, location, dimensionId, radius, teamId }) {
     const clue = {
         id: newId("clue"),
         type: "location",
@@ -16,32 +16,35 @@ export function addLocationClue(hunt, { name, hint, location, dimensionId, radiu
         y: Math.floor(location.y),
         z: Math.floor(location.z),
         radius: Math.min(50, Math.max(1, Math.round(radius ?? 5))),
+        teamId: teamId ?? null,
     };
     hunt.clues.push(clue);
     save();
     return clue;
 }
 
-export function addRiddleClue(hunt, { name, hint, answer }) {
+export function addRiddleClue(hunt, { name, hint, answer, teamId }) {
     const clue = {
         id: newId("clue"),
         type: "riddle",
         name: sanitizeIdentifier(name, 32),
         hint: cleanText(hint, 240),
         answer: cleanText(answer, 60),
+        teamId: teamId ?? null,
     };
     hunt.clues.push(clue);
     save();
     return clue;
 }
 
-export function editClue(hunt, clueId, { name, hint, answer, radius }) {
+export function editClue(hunt, clueId, { name, hint, answer, radius, teamId }) {
     const clue = hunt.clues.find((c) => c.id === clueId);
     if (!clue) return null;
     if (name !== undefined) clue.name = sanitizeIdentifier(name, 32);
     if (hint !== undefined) clue.hint = cleanText(hint, 240);
     if (answer !== undefined && clue.type === "riddle") clue.answer = cleanText(answer, 60);
     if (radius !== undefined && clue.type === "location") clue.radius = Math.min(50, Math.max(1, Math.round(radius)));
+    if (teamId !== undefined) clue.teamId = teamId;
     save();
     return clue;
 }
@@ -69,8 +72,19 @@ export function getClue(hunt, clueId) {
     return hunt.clues.find((c) => c.id === clueId) ?? null;
 }
 
+/** A team's own ordered path: clues made just for them, plus every shared clue, in authoring order. */
+export function getTeamClues(hunt, team) {
+    return hunt.clues.filter((c) => !c.teamId || c.teamId === team.id);
+}
+
 export function getCurrentClue(hunt, team) {
-    return hunt.clues[team.progress] ?? null;
+    return getTeamClues(hunt, team)[team.progress] ?? null;
+}
+
+export function clueScopeLabel(hunt, clue) {
+    if (!clue.teamId) return "Shared";
+    const team = hunt.teams[clue.teamId];
+    return team ? team.name : "Unknown team (deleted)";
 }
 
 export function checkRiddleAnswer(clue, message) {

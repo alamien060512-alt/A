@@ -66,7 +66,7 @@ function openMyTeam(player, h, t) {
     if (t.finishTime) {
         status = "§a🏆 Your team already found the treasure!";
     } else if (h.state === "running" && current) {
-        status = clues.formatClueMessage(current, t.progress + 1, h.clues.length);
+        status = clues.formatClueMessage(current, t.progress + 1, clues.getTeamClues(h, t).length);
     } else if (h.state === "paused") {
         status = "§eThe hunt is currently paused by an admin.";
     } else {

@@ -36,6 +36,10 @@ export function deleteTeam(hunt, teamId) {
     if (!team) return false;
     removeTeamFromScoreboard(team);
     delete hunt.teams[teamId];
+    // clues made just for this team fall back to "shared" instead of silently vanishing
+    for (const clue of hunt.clues) {
+        if (clue.teamId === teamId) clue.teamId = null;
+    }
     save();
     return true;
 }

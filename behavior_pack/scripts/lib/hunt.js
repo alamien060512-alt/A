@@ -1,13 +1,18 @@
 import { world } from "@minecraft/server";
 import { save } from "./store.js";
 import { listTeams } from "./teams.js";
-import { formatClueMessage } from "./clues.js";
+import { formatClueMessage, getTeamClues } from "./clues.js";
 import { resetAndSync, syncTeam } from "./scoreboard.js";
 import { fmtTime, colorCodeOf, broadcastChat, broadcastTitle } from "./util.js";
 
 export function startHunt(hunt) {
     if (hunt.clues.length === 0) return { ok: false, reason: "This hunt has no clues yet." };
     if (Object.keys(hunt.teams).length === 0) return { ok: false, reason: "This hunt has no teams yet." };
+    for (const team of listTeams(hunt)) {
+        if (getTeamClues(hunt, team).length === 0) {
+            return { ok: false, reason: `Team "${team.name}" has no clues assigned to it (and no shared clues exist). Add at least one shared clue or a clue for that team.` };
+        }
+    }
 
     const now = Date.now();
     hunt.state = "running";
@@ -75,9 +80,10 @@ export function getElapsed(hunt, atTime = Date.now()) {
 }
 
 function sendClueToTeam(hunt, team) {
-    const clue = hunt.clues[team.progress];
+    const path = getTeamClues(hunt, team);
+    const clue = path[team.progress];
     if (!clue) return;
-    const text = formatClueMessage(clue, team.progress + 1, hunt.clues.length);
+    const text = formatClueMessage(clue, team.progress + 1, path.length);
     if (hunt.settings?.publicHints) {
         broadcastChat(`${colorCodeOf(team.color)}[${team.name}]§r\n${text}`);
     } else {
@@ -108,7 +114,8 @@ export function advanceTeam(hunt, team) {
     team.lastAdvanceAt = now;
 
     const code = colorCodeOf(team.color);
-    const justFinished = team.progress >= hunt.clues.length;
+    const teamTotal = getTeamClues(hunt, team).length;
+    const justFinished = team.progress >= teamTotal;
 
     if (justFinished) {
         team.finishTime = now;
@@ -125,7 +132,7 @@ export function advanceTeam(hunt, team) {
     } else {
         save();
         syncTeam(team);
-        broadcastChat(`${code}⚑ Team ${team.name}§r found clue #${team.progress}/${hunt.clues.length}!`);
+        broadcastChat(`${code}⚑ Team ${team.name}§r found clue #${team.progress}/${teamTotal}!`);
         sendClueToTeam(hunt, team);
     }
 }
@@ -134,10 +141,12 @@ export function getLeaderboardLines(hunt) {
     const teams = listTeams(hunt);
     if (teams.length === 0) return ["§7No teams have been created yet."];
 
+    const totalOf = (t) => Math.max(1, getTeamClues(hunt, t).length);
+
     const finished = teams.filter((t) => t.finishTime).sort((a, b) => a.finishTime - b.finishTime);
     const unfinished = teams
         .filter((t) => !t.finishTime)
-        .sort((a, b) => b.progress - a.progress || a.name.localeCompare(b.name));
+        .sort((a, b) => b.progress / totalOf(b) - a.progress / totalOf(a) || a.name.localeCompare(b.name));
 
     const medals = ["🥇", "🥈", "🥉"];
     const lines = [];
@@ -152,7 +161,7 @@ export function getLeaderboardLines(hunt) {
         const medal = medals[rank - 1] ?? `${rank}.`;
         const code = colorCodeOf(team.color);
         const status = hunt.startedAt
-            ? `Clue ${team.progress}/${hunt.clues.length} — §f${fmtTime(getElapsed(hunt))}§r elapsed`
+            ? `Clue ${team.progress}/${getTeamClues(hunt, team).length} — §f${fmtTime(getElapsed(hunt))}§r elapsed`
             : "Not started";
         lines.push(`${medal} ${code}${team.name}§r — ${status}`);
         rank++;

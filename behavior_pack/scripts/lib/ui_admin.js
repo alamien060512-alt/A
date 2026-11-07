@@ -145,7 +145,7 @@ function openCluesList(player, h) {
     const buttons = [];
     h.clues.forEach((c, i) => {
         const icon = c.type === "location" ? "📍" : "❓";
-        buttons.push([`${i + 1}. ${icon} ${c.name}`, () => openClueDetail(player, h, c)]);
+        buttons.push([`${i + 1}. ${icon} ${c.name} §7[${clues.clueScopeLabel(h, c)}]`, () => openClueDetail(player, h, c)]);
     });
     buttons.push(["➕ Add Location Clue (at my position)", () => promptAddLocationClue(player, h)]);
     buttons.push(["➕ Add Riddle Clue (chat answer)", () => promptAddRiddleClue(player, h)]);
@@ -157,9 +157,9 @@ function openCluesList(player, h) {
 function openClueDetail(player, h, c) {
     const idx = h.clues.findIndex((x) => x.id === c.id);
     const details =
-        c.type === "location"
+        (c.type === "location"
             ? `Type: Location\nHint: ${c.hint}\nPosition: ${c.x}, ${c.y}, ${c.z} (${c.dimensionId})\nRadius: ${c.radius} blocks`
-            : `Type: Riddle\nHint: ${c.hint}\nAnswer: ${c.answer}`;
+            : `Type: Riddle\nHint: ${c.hint}\nAnswer: ${c.answer}`) + `\nFor: ${clues.clueScopeLabel(h, c)}`;
     const form = new ActionFormData().title(`Clue ${idx + 1}: ${c.name}`).body(details);
     const buttons = [
         ["✏ Edit Text", () => promptEditClue(player, h, c)],
@@ -185,21 +185,32 @@ function openClueDetail(player, h, c) {
     show(form, player, buttons);
 }
 
+/** Dropdown choices for "who is this clue for": Shared + every team, in matching order. */
+function teamScopeChoices(h) {
+    const list = teams.listTeams(h);
+    const labels = ["🌐 Shared (all teams)", ...list.map((t) => `${colorCodeOf(t.color)}${t.name}`)];
+    const ids = [null, ...list.map((t) => t.id)];
+    return { labels, ids };
+}
+
 function promptAddLocationClue(player, h) {
+    const { labels, ids } = teamScopeChoices(h);
     const form = new ModalFormData()
         .title("Add Location Clue")
         .textField("Clue name", "e.g. Old Oak Tree")
         .textField("Hint shown to the team", "e.g. Look where the river bends near the big oak...")
-        .slider("Trigger radius (blocks)", 1, 30, 1, 5);
+        .slider("Trigger radius (blocks)", 1, 30, 1, 5)
+        .dropdown("Who is this clue for? (pick a team for a scattered start, Shared for everyone)", labels, 0);
     form.show(player).then((res) => {
         if (res.canceled) return openCluesList(player, h);
-        const [name, hintText, radius] = res.formValues;
+        const [name, hintText, radius, scopeIdx] = res.formValues;
         clues.addLocationClue(h, {
             name: name && name.trim() ? name : "Clue",
             hint: hintText ?? "",
             location: player.location,
             dimensionId: player.dimension.id,
             radius,
+            teamId: ids[scopeIdx] ?? null,
         });
         player.sendMessage("§aClue added at your current location.");
         openCluesList(player, h);
@@ -207,34 +218,41 @@ function promptAddLocationClue(player, h) {
 }
 
 function promptAddRiddleClue(player, h) {
+    const { labels, ids } = teamScopeChoices(h);
     const form = new ModalFormData()
         .title("Add Riddle Clue")
         .textField("Clue name", "e.g. The Riddle of Sands")
         .textField("Hint / riddle text", "e.g. I have cities but no houses...")
-        .textField("Expected answer (not case sensitive)", "e.g. map");
+        .textField("Expected answer (not case sensitive)", "e.g. map")
+        .dropdown("Who is this clue for? (pick a team for a scattered start, Shared for everyone)", labels, 0);
     form.show(player).then((res) => {
         if (res.canceled) return openCluesList(player, h);
-        const [name, hintText, answer] = res.formValues;
+        const [name, hintText, answer, scopeIdx] = res.formValues;
         if (!answer || answer.trim().length === 0) {
             player.sendMessage("§cAnswer cannot be empty — clue was not added.");
             return openCluesList(player, h);
         }
-        clues.addRiddleClue(h, { name: name && name.trim() ? name : "Riddle", hint: hintText ?? "", answer });
+        clues.addRiddleClue(h, { name: name && name.trim() ? name : "Riddle", hint: hintText ?? "", answer, teamId: ids[scopeIdx] ?? null });
         player.sendMessage("§aRiddle clue added.");
         openCluesList(player, h);
     });
 }
 
 function promptEditClue(player, h, c) {
+    const { labels, ids } = teamScopeChoices(h);
+    const currentScopeIdx = Math.max(0, ids.indexOf(c.teamId ?? null));
     const form = new ModalFormData().title("Edit Clue").textField("Name", c.name, c.name).textField("Hint", c.hint, c.hint);
     if (c.type === "riddle") form.textField("Answer", c.answer, c.answer);
     if (c.type === "location") form.slider("Trigger radius (blocks)", 1, 30, 1, c.radius);
+    form.dropdown("Who is this clue for?", labels, currentScopeIdx);
     form.show(player).then((res) => {
         if (res.canceled) return openClueDetail(player, h, c);
-        const [name, hintText, third] = res.formValues;
-        const patch = { name, hint: hintText };
-        if (c.type === "riddle") patch.answer = third;
-        if (c.type === "location") patch.radius = third;
+        const values = res.formValues;
+        const patch = { name: values[0], hint: values[1] };
+        let i = 2;
+        if (c.type === "riddle") patch.answer = values[i++];
+        if (c.type === "location") patch.radius = values[i++];
+        patch.teamId = ids[values[i]] ?? null;
         clues.editClue(h, c.id, patch);
         openClueDetail(player, h, c);
     });
@@ -257,7 +275,7 @@ function openTeamsList(player, h) {
     const buttons = [];
     for (const t of teams.listTeams(h)) {
         buttons.push([
-            `${colorCodeOf(t.color)}● ${t.name}§r (${t.members.length} players) — Clue ${t.progress}/${h.clues.length}`,
+            `${colorCodeOf(t.color)}● ${t.name}§r (${t.members.length} players) — Clue ${t.progress}/${clues.getTeamClues(h, t).length}`,
             () => openTeamDetail(player, h, t),
         ]);
     }
@@ -284,7 +302,7 @@ function openTeamDetail(player, h, t) {
     const body =
         `Color: ${colorLabelOf(t.color)}\n` +
         `Members: ${t.members.length > 0 ? t.members.join(", ") : "(none)"}\n` +
-        `Progress: Clue ${t.progress}/${h.clues.length}` +
+        `Progress: Clue ${t.progress}/${clues.getTeamClues(h, t).length}` +
         (t.finishTime ? `\n§aFinished in ${fmtTime(t.finishTime - h.startedAt)}` : "");
     const form = new ActionFormData().title(t.name).body(body);
     const buttons = [

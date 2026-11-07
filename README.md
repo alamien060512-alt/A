@@ -28,6 +28,11 @@ you do **not** need to enable the "Beta APIs" experiment for this addon.
   the current riddle in chat.
 - **Leaderboard** ranking teams by who finished fastest, with live clue
   progress for teams still racing. Available to admins and players alike.
+- **Scattered starts, shared treasure**: any clue can be marked "Shared"
+  (everyone sees it) or assigned to one specific team. Give each team its
+  own early clue(s) scattered around the map, then end every team's path
+  on the same shared final clue — all teams converge on one treasure, but
+  nobody starts in the same place.
 - **Lap timing** per clue, finish-time tracking, and a "🏆 X WINS!" title
   broadcast the moment a team finds the treasure.
 - Optional **public hints** setting if you'd rather everyone see every
@@ -94,6 +99,34 @@ date.
   answer to a riddle automatically advances that team to the next clue,
   announces it to the server, and updates the scoreboard.
 - Anyone can check standings with `!board` or the Leaderboard button.
+
+## Scattering teams with a shared final treasure
+
+Every clue you add has a **"Who is this clue for?"** dropdown: `Shared (all
+teams)` or one specific team. A team's path through the hunt is: its own
+clues, plus every shared clue, in the order you created them. This means:
+
+1. Create your teams first (**Manage Teams → Create Team**) — you need at
+   least one team to assign clues to.
+2. For each team, stand somewhere different on the map and
+   **Manage Clues → Add Location/Riddle Clue**, picking that team in the
+   dropdown. This is each team's unique starting clue (or a short private
+   chain of several clues — add as many as you want for that team).
+3. Add one or more **Shared** clues afterward for everyone to solve once
+   they've worked through their own leg.
+4. Add a final **Shared** clue at the treasure's location — that's the
+   clue every team finishes on, no matter which path they took to reach it.
+5. **Start Hunt.** Each team is immediately sent *their own* first clue
+   (not anyone else's), and the sidebar scoreboard, leaderboard and
+   action-bar guidance all automatically follow each team's own path length
+   — a team with 4 clues (2 private + 2 shared) and a team with 3 are
+   compared fairly by percentage complete, not raw clue count.
+
+You can mix and match freely: some teams can have several private clues
+before joining the shared path, others can jump straight to a shared clue
+— whatever suits your map. Clue order inside **Manage Clues** is the
+authoring order for the whole hunt; each team simply skips any clue that
+belongs to a different team.
 
 ## Chat shortcuts
 
