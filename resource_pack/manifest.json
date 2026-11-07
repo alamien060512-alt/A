@@ -1,0 +1,21 @@
+{
+    "format_version": 3,
+    "header": {
+        "name": "Treasure Hunt",
+        "description": "Resource pack companion for the Treasure Hunt addon (item icons and text).",
+        "uuid": "939c0a8c-fa7e-4b2a-9f6b-ae170bbc2aa6",
+        "version": [1, 0, 0],
+        "min_engine_version": [1, 21, 60]
+    },
+    "modules": [
+        {
+            "type": "resources",
+            "uuid": "95c61809-2f19-490f-9ff6-dc45d32680e4",
+            "version": [1, 0, 0]
+        }
+    ],
+    "metadata": {
+        "authors": ["Treasure Hunt Addon"],
+        "product_type": "addon"
+    }
+}

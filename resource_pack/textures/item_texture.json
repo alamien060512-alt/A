@@ -1,0 +1,12 @@
+{
+    "resource_pack_name": "treasure_hunt",
+    "texture_name": "atlas.items",
+    "texture_data": {
+        "th:admin_baton": {
+            "textures": "textures/items/admin_baton"
+        },
+        "th:team_compass": {
+            "textures": "textures/items/team_compass"
+        }
+    }
+}

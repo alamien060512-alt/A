@@ -1,0 +1,7 @@
+## Treasure Hunt addon
+
+item.th:admin_baton=Treasure Hunt Admin Baton
+item.th:team_compass=Team Compass
+
+pack.name=Treasure Hunt
+pack.description=Resource pack companion for the Treasure Hunt addon.
