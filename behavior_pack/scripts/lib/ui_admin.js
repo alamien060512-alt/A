@@ -12,12 +12,50 @@ export function isAdmin(player) {
     return player.hasTag(ADMIN_TAG);
 }
 
+/** Every .show() goes through here or formResult() below so a form error is always visible
+ * (a chat message + content log line) instead of silently doing nothing. */
+function onFormError(player, e) {
+    console.warn("[TreasureHunt] form error: " + e);
+    try {
+        player.sendMessage("§cSomething went wrong opening that menu. Please try again, and tell an admin if it keeps happening.");
+    } catch (_) {
+        /* player may have disconnected */
+    }
+}
+
 function show(form, player, buttons) {
-    form.show(player).then((res) => {
-        if (res.canceled) return;
-        const action = buttons[res.selection];
-        if (action) action[1]();
-    });
+    form.show(player)
+        .then((res) => {
+            if (res.canceled) return;
+            const action = buttons[res.selection];
+            if (action) action[1]();
+        })
+        .catch((e) => onFormError(player, e));
+}
+
+/** Wraps a direct `.then(onResult)` with the same error visibility. */
+function formResult(form, player, onResult) {
+    form.show(player).then(onResult).catch((e) => onFormError(player, e));
+}
+
+/** Adds a radius slider, falling back to a plain number text field if slider() itself throws
+ * (older game builds). Returns true if the real slider was used (result is already a number),
+ * false if the fallback text field was used (result is a string that needs parsing). */
+function addRadiusField(form, defaultRadius) {
+    try {
+        form.slider("Trigger radius (blocks)", 1, 30, 1, defaultRadius);
+        return true;
+    } catch (e) {
+        console.warn("[TreasureHunt] slider() unavailable on this game version, using a text field instead: " + e);
+        form.textField("Trigger radius in blocks (1-30)", String(defaultRadius), String(defaultRadius));
+        return false;
+    }
+}
+
+function parseRadius(value, usedSlider, fallbackValue) {
+    if (usedSlider) return value;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackValue;
 }
 
 function describeState(h) {
@@ -102,7 +140,7 @@ function openHuntDetail(player, h) {
 
 function promptCreateHunt(player) {
     const form = new ModalFormData().title("Create New Hunt").textField("Hunt name", "e.g. Pirate Cove Hunt");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openHuntsList(player);
         const [name] = res.formValues;
         const trimmed = (name ?? "").trim();
@@ -114,7 +152,7 @@ function promptCreateHunt(player) {
 
 function promptRenameHunt(player, h) {
     const form = new ModalFormData().title("Rename Hunt").textField("New name", h.name, h.name);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openHuntDetail(player, h);
         const [name] = res.formValues;
         store.renameHunt(h, (name ?? "").trim() || h.name);
@@ -128,7 +166,7 @@ function confirmDeleteHunt(player, h, onDone) {
         .body(`This permanently deletes "${h.name}", its clues, teams and progress. This cannot be undone.`)
         .button1("Cancel")
         .button2("Delete");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection === 0) return onDone();
         store.deleteHunt(h.id);
         player.sendMessage(`§cDeleted hunt "${h.name}".`);
@@ -195,21 +233,22 @@ function teamScopeChoices(h) {
 
 function promptAddLocationClue(player, h) {
     const { labels, ids } = teamScopeChoices(h);
+    const defaultRadius = 5;
     const form = new ModalFormData()
         .title("Add Location Clue")
         .textField("Clue name", "e.g. Old Oak Tree")
-        .textField("Hint shown to the team", "e.g. Look where the river bends near the big oak...")
-        .slider("Trigger radius (blocks)", 1, 30, 1, 5)
-        .dropdown("Who is this clue for? (pick a team for a scattered start, Shared for everyone)", labels, 0);
-    form.show(player).then((res) => {
+        .textField("Hint shown to the team", "e.g. Look where the river bends near the big oak...");
+    const usedSlider = addRadiusField(form, defaultRadius);
+    form.dropdown("Who is this clue for? (pick a team for a scattered start, Shared for everyone)", labels, 0);
+    formResult(form, player, (res) => {
         if (res.canceled) return openCluesList(player, h);
-        const [name, hintText, radius, scopeIdx] = res.formValues;
+        const [name, hintText, radiusRaw, scopeIdx] = res.formValues;
         clues.addLocationClue(h, {
             name: name && name.trim() ? name : "Clue",
             hint: hintText ?? "",
             location: player.location,
             dimensionId: player.dimension.id,
-            radius,
+            radius: parseRadius(radiusRaw, usedSlider, defaultRadius),
             teamId: ids[scopeIdx] ?? null,
         });
         player.sendMessage("§aClue added at your current location.");
@@ -225,7 +264,7 @@ function promptAddRiddleClue(player, h) {
         .textField("Hint / riddle text", "e.g. I have cities but no houses...")
         .textField("Expected answer (not case sensitive)", "e.g. map")
         .dropdown("Who is this clue for? (pick a team for a scattered start, Shared for everyone)", labels, 0);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openCluesList(player, h);
         const [name, hintText, answer, scopeIdx] = res.formValues;
         if (!answer || answer.trim().length === 0) {
@@ -243,24 +282,26 @@ function promptEditClue(player, h, c) {
     const currentScopeIdx = Math.max(0, ids.indexOf(c.teamId ?? null));
     const form = new ModalFormData().title("Edit Clue").textField("Name", c.name, c.name).textField("Hint", c.hint, c.hint);
     if (c.type === "riddle") form.textField("Answer", c.answer, c.answer);
-    if (c.type === "location") form.slider("Trigger radius (blocks)", 1, 30, 1, c.radius);
+    let usedSlider = true;
+    if (c.type === "location") usedSlider = addRadiusField(form, c.radius);
     form.dropdown("Who is this clue for?", labels, currentScopeIdx);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openClueDetail(player, h, c);
         const values = res.formValues;
         const patch = { name: values[0], hint: values[1] };
         let i = 2;
         if (c.type === "riddle") patch.answer = values[i++];
-        if (c.type === "location") patch.radius = values[i++];
+        if (c.type === "location") patch.radius = parseRadius(values[i++], usedSlider, c.radius);
         patch.teamId = ids[values[i]] ?? null;
         clues.editClue(h, c.id, patch);
+        player.sendMessage("§aClue updated.");
         openClueDetail(player, h, c);
     });
 }
 
 function confirmDeleteClue(player, h, c) {
     const form = new MessageFormData().title("Delete Clue?").body(`Delete clue "${c.name}"? This cannot be undone.`).button1("Cancel").button2("Delete");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection === 0) return openClueDetail(player, h, c);
         clues.deleteClue(h, c.id);
         player.sendMessage(`§cDeleted clue "${c.name}".`);
@@ -288,7 +329,7 @@ function openTeamsList(player, h) {
 function promptCreateTeam(player, h) {
     const colorNames = COLORS.map((c) => c.label);
     const form = new ModalFormData().title("Create Team").textField("Team name", "e.g. Red Raiders").dropdown("Color", colorNames, 0);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openTeamsList(player, h);
         const [name, colorIdx] = res.formValues;
         const colorKey = COLORS[colorIdx]?.key ?? "white";
@@ -319,7 +360,7 @@ function openTeamDetail(player, h, t) {
 
 function promptRenameTeam(player, h, t) {
     const form = new ModalFormData().title("Rename Team").textField("New name", t.name, t.name);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openTeamDetail(player, h, t);
         const [name] = res.formValues;
         teams.renameTeam(h, t.id, name && name.trim() ? name : t.name);
@@ -331,7 +372,7 @@ function promptChangeColor(player, h, t) {
     const colorNames = COLORS.map((c) => c.label);
     const currentIdx = COLORS.findIndex((c) => c.key === t.color);
     const form = new ModalFormData().title("Change Color").dropdown("Color", colorNames, currentIdx >= 0 ? currentIdx : 0);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openTeamDetail(player, h, t);
         const [colorIdx] = res.formValues;
         teams.setTeamColor(h, t.id, COLORS[colorIdx]?.key ?? t.color);
@@ -352,7 +393,7 @@ function promptAddPlayer(player, h, t) {
     const form = new ActionFormData().title("Add Player to " + t.name).body("Select an online player:");
     labels.forEach((l) => form.button(l));
     form.button("← Back");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection >= online.length) return openTeamDetail(player, h, t);
         const name = online[res.selection];
         teams.addPlayerToTeam(h, t.id, name);
@@ -369,7 +410,7 @@ function promptRemovePlayer(player, h, t) {
     const form = new ActionFormData().title("Remove Player from " + t.name).body("Select a member to remove:");
     t.members.forEach((m) => form.button(m));
     form.button("← Back");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection >= t.members.length) return openTeamDetail(player, h, t);
         const name = t.members[res.selection];
         teams.removePlayerFromTeam(h, name);
@@ -380,7 +421,7 @@ function promptRemovePlayer(player, h, t) {
 
 function confirmDeleteTeam(player, h, t) {
     const form = new MessageFormData().title("Delete Team?").body(`Delete team "${t.name}" and its progress? This cannot be undone.`).button1("Cancel").button2("Delete");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection === 0) return openTeamDetail(player, h, t);
         teams.deleteTeam(h, t.id);
         player.sendMessage(`§cDeleted team "${t.name}".`);
@@ -396,7 +437,7 @@ function confirmStart(player, h) {
         .body(`Start "${h.name}"? This resets all team progress and timers, and announces to everyone.`)
         .button1("Cancel")
         .button2("Start!");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection === 0) return openAdminMain(player);
         const result = huntLib.startHunt(h);
         if (!result.ok) player.sendMessage("§c" + result.reason);
@@ -410,7 +451,7 @@ function confirmReset(player, h) {
         .body(`Reset all team progress and timers for "${h.name}"? Clues and teams are kept.`)
         .button1("Cancel")
         .button2("Reset");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection === 0) return openAdminMain(player);
         huntLib.resetProgress(h);
         player.sendMessage("§aProgress reset.");
@@ -445,7 +486,7 @@ export function openLeaderboard(player, h, onBack) {
     const header = `${h.name} — ${describeState(h)}`;
     const form = new ActionFormData().title("🏆 Leaderboard").body(header + "\n\n" + lines.join("\n"));
     form.button("← Back");
-    form.show(player).then(() => {
+    formResult(form, player, () => {
         if (onBack) onBack();
     });
 }

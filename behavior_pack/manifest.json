@@ -4,7 +4,7 @@
         "name": "Treasure Hunt",
         "description": "Admin-run treasure hunts: custom clues, teams, live scoreboard and a race-the-clock leaderboard.",
         "uuid": "79a69b5c-05c0-43b5-9523-1852bf8f0678",
-        "version": [1, 4, 0],
+        "version": [1, 5, 0],
         "min_engine_version": [1, 20, 0]
     },
     "modules": [

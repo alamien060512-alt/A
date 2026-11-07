@@ -5,12 +5,27 @@ import * as clues from "./clues.js";
 import { colorCodeOf } from "./util.js";
 import { openLeaderboard } from "./ui_admin.js";
 
+function onFormError(player, e) {
+    console.warn("[TreasureHunt] form error: " + e);
+    try {
+        player.sendMessage("§cSomething went wrong opening that menu. Please try again.");
+    } catch (_) {
+        /* player may have disconnected */
+    }
+}
+
 function show(form, player, buttons) {
-    form.show(player).then((res) => {
-        if (res.canceled) return;
-        const action = buttons[res.selection];
-        if (action) action[1]();
-    });
+    form.show(player)
+        .then((res) => {
+            if (res.canceled) return;
+            const action = buttons[res.selection];
+            if (action) action[1]();
+        })
+        .catch((e) => onFormError(player, e));
+}
+
+function formResult(form, player, onResult) {
+    form.show(player).then(onResult).catch((e) => onFormError(player, e));
 }
 
 export function openPlayerMain(player) {
@@ -49,7 +64,7 @@ function openJoinTeam(player, h) {
 
 function promptCreateAndJoin(player, h) {
     const form = new ModalFormData().title("Create a Team").textField("Team name", `${player.name}'s Team`);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openJoinTeam(player, h);
         const [name] = res.formValues;
         const colorKey = teams.pickUnusedColor(h);
@@ -86,7 +101,7 @@ function openMyTeam(player, h, t) {
 
 function promptRenameMyTeam(player, h, t) {
     const form = new ModalFormData().title("Rename My Team").textField("New name", t.name, t.name);
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled) return openMyTeam(player, h, t);
         const [name] = res.formValues;
         teams.renameTeam(h, t.id, name && name.trim() ? name : t.name);
@@ -96,7 +111,7 @@ function promptRenameMyTeam(player, h, t) {
 
 function confirmLeaveTeam(player, h, t) {
     const form = new MessageFormData().title("Leave Team?").body(`Leave "${t.name}"?`).button1("Cancel").button2("Leave");
-    form.show(player).then((res) => {
+    formResult(form, player, (res) => {
         if (res.canceled || res.selection === 0) return openMyTeam(player, h, t);
         teams.removePlayerFromTeam(h, player.name);
         player.sendMessage(`§eYou left ${t.name}.`);
