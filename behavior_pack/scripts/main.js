@@ -20,32 +20,36 @@ world.afterEvents.itemUse.subscribe((event) => {
     }
 });
 
-system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
-    const base = { permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false };
+// Custom slash commands need a newer game build (Minecraft 1.21.100+ / @minecraft/server 2.1.0+).
+// This is wrapped defensively so older clients still get a fully working addon via the
+// Admin Baton / Team Compass items (see itemUse handler above), just without the /th:* commands.
+try {
+    system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
+        const base = { permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false };
 
-    customCommandRegistry.registerCommand(
-        { name: "th:admin", description: "Open the Treasure Hunt admin panel.", ...base },
-        (origin) => {
+        const register = (name, description, handler) => {
+            try {
+                customCommandRegistry.registerCommand({ name, description, ...base }, handler);
+            } catch (e) {
+                console.warn(`[TreasureHunt] couldn't register /${name}: ${e}`);
+            }
+        };
+
+        register("th:admin", "Open the Treasure Hunt admin panel.", (origin) => {
             const player = origin.sourceEntity;
             if (!(player instanceof Player)) return { status: CustomCommandStatus.Failure, message: "Players only." };
             system.run(() => openAdminMain(player));
             return { status: CustomCommandStatus.Success };
-        }
-    );
+        });
 
-    customCommandRegistry.registerCommand(
-        { name: "th:team", description: "Open your Treasure Hunt team menu.", ...base },
-        (origin) => {
+        register("th:team", "Open your Treasure Hunt team menu.", (origin) => {
             const player = origin.sourceEntity;
             if (!(player instanceof Player)) return { status: CustomCommandStatus.Failure, message: "Players only." };
             system.run(() => openPlayerMain(player));
             return { status: CustomCommandStatus.Success };
-        }
-    );
+        });
 
-    customCommandRegistry.registerCommand(
-        { name: "th:board", description: "Show the Treasure Hunt leaderboard.", ...base },
-        (origin) => {
+        register("th:board", "Show the Treasure Hunt leaderboard.", (origin) => {
             const player = origin.sourceEntity;
             if (!(player instanceof Player)) return { status: CustomCommandStatus.Failure, message: "Players only." };
             system.run(() => {
@@ -57,9 +61,11 @@ system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
                 openLeaderboard(player, h, () => {});
             });
             return { status: CustomCommandStatus.Success };
-        }
-    );
-});
+        });
+    });
+} catch (e) {
+    console.warn("[TreasureHunt] custom commands unavailable on this game version: " + e);
+}
 
 world.beforeEvents.chatSend.subscribe((event) => {
     const { sender, message } = event;

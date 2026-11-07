@@ -1,11 +1,11 @@
 {
-    "format_version": 3,
+    "format_version": 2,
     "header": {
         "name": "Treasure Hunt",
         "description": "Admin-run treasure hunts: custom clues, teams, live scoreboard and a race-the-clock leaderboard.",
         "uuid": "79a69b5c-05c0-43b5-9523-1852bf8f0678",
-        "version": [1, 1, 0],
-        "min_engine_version": [1, 21, 100]
+        "version": [1, 2, 0],
+        "min_engine_version": [1, 20, 0]
     },
     "modules": [
         {
@@ -24,11 +24,11 @@
     "dependencies": [
         {
             "module_name": "@minecraft/server",
-            "version": "2.1.0"
+            "version": "1.8.0"
         },
         {
             "module_name": "@minecraft/server-ui",
-            "version": "2.1.0"
+            "version": "1.2.0"
         }
     ],
     "metadata": {
