@@ -59,11 +59,12 @@ Then, in your world's settings:
 1. **Behavior Packs** → activate "Treasure Hunt".
 2. **Resource Packs** → activate "Treasure Hunt".
 
-No experiments need to be toggled for current Minecraft versions. If your
-game build is older and items show up with a missing-texture icon or scripts
-don't seem to run, try enabling **Holiday Creator Features** and/or
-**Beta APIs** under world experiments, and make sure Minecraft is up to
-date.
+This addon targets Minecraft **1.21.100 or newer** (needed for custom slash
+commands) and requires no experiment toggles on that version or later. If
+your game is older, update Minecraft; if items still show a missing-texture
+icon or scripts don't seem to run, double-check both packs are activated
+(not just imported) under the world's Behavior Packs **and** Resource Packs
+tabs.
 
 ## Setup (do this once per world)
 
@@ -73,7 +74,7 @@ date.
    /give @s th:admin_baton
    ```
 2. Right-click the **Treasure Hunt Admin Baton** to open the admin panel.
-   (You can also type `!thadmin` in chat any time you have the tag.)
+   (You can also run `/th:admin` any time you have the tag.)
 3. **Manage Hunts → Create New Hunt** — give it a name. It becomes active
    automatically.
 4. **Manage Clues** — stand where you want a clue and choose
@@ -89,7 +90,7 @@ date.
 ## Playing
 
 - Give players a **Team Compass** (`/give <player> th:team_compass`) or let
-  them type `!team` in chat.
+  them run `/th:team`.
 - If they're not on a team yet, they'll see a list of teams to join (or can
   create their own team on the spot).
 - Once on a team, the menu shows their current clue/riddle, and the
@@ -98,7 +99,7 @@ date.
 - Finding a location clue (walking into its radius) or typing the correct
   answer to a riddle automatically advances that team to the next clue,
   announces it to the server, and updates the scoreboard.
-- Anyone can check standings with `!board` or the Leaderboard button.
+- Anyone can check standings with `/th:board` or the Leaderboard button.
 
 ## Scattering teams with a shared final treasure
 
@@ -128,13 +129,16 @@ before joining the shared path, others can jump straight to a shared clue
 authoring order for the whole hunt; each team simply skips any clue that
 belongs to a different team.
 
-## Chat shortcuts
+## Slash commands
+
+These are real custom commands (not chat triggers) — they autocomplete and
+work even with cheats off.
 
 | Command | Who | Does |
 |---|---|---|
-| `!thadmin` | players with the `th_admin` tag | Open the admin panel |
-| `!team` | everyone | Open "join a team" / "my team" menu |
-| `!board` | everyone | Show the leaderboard |
+| `/th:admin` | players with the `th_admin` tag | Open the admin panel |
+| `/th:team` | everyone | Open "join a team" / "my team" menu |
+| `/th:board` | everyone | Show the leaderboard |
 
 ## Notes & tips
 

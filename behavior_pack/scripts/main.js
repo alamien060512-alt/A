@@ -1,4 +1,4 @@
-import { world, system } from "@minecraft/server";
+import { world, system, Player, CommandPermissionLevel, CustomCommandStatus } from "@minecraft/server";
 import * as store from "./lib/store.js";
 import * as teamsLib from "./lib/teams.js";
 import * as cluesLib from "./lib/clues.js";
@@ -20,33 +20,50 @@ world.afterEvents.itemUse.subscribe((event) => {
     }
 });
 
+system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
+    const base = { permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false };
+
+    customCommandRegistry.registerCommand(
+        { name: "th:admin", description: "Open the Treasure Hunt admin panel.", ...base },
+        (origin) => {
+            const player = origin.sourceEntity;
+            if (!(player instanceof Player)) return { status: CustomCommandStatus.Failure, message: "Players only." };
+            system.run(() => openAdminMain(player));
+            return { status: CustomCommandStatus.Success };
+        }
+    );
+
+    customCommandRegistry.registerCommand(
+        { name: "th:team", description: "Open your Treasure Hunt team menu.", ...base },
+        (origin) => {
+            const player = origin.sourceEntity;
+            if (!(player instanceof Player)) return { status: CustomCommandStatus.Failure, message: "Players only." };
+            system.run(() => openPlayerMain(player));
+            return { status: CustomCommandStatus.Success };
+        }
+    );
+
+    customCommandRegistry.registerCommand(
+        { name: "th:board", description: "Show the Treasure Hunt leaderboard.", ...base },
+        (origin) => {
+            const player = origin.sourceEntity;
+            if (!(player instanceof Player)) return { status: CustomCommandStatus.Failure, message: "Players only." };
+            system.run(() => {
+                const h = store.getActiveHunt();
+                if (!h) {
+                    player.sendMessage("§cNo active hunt right now.");
+                    return;
+                }
+                openLeaderboard(player, h, () => {});
+            });
+            return { status: CustomCommandStatus.Success };
+        }
+    );
+});
+
 world.beforeEvents.chatSend.subscribe((event) => {
     const { sender, message } = event;
     const trimmed = message.trim();
-    const lower = trimmed.toLowerCase();
-
-    if (lower === "!thadmin" || lower === "!admin") {
-        event.cancel = true;
-        system.run(() => openAdminMain(sender));
-        return;
-    }
-    if (lower === "!team" || lower === "!th") {
-        event.cancel = true;
-        system.run(() => openPlayerMain(sender));
-        return;
-    }
-    if (lower === "!board" || lower === "!leaderboard") {
-        event.cancel = true;
-        system.run(() => {
-            const h = store.getActiveHunt();
-            if (!h) {
-                sender.sendMessage("§cNo active hunt right now.");
-                return;
-            }
-            openLeaderboard(sender, h, () => {});
-        });
-        return;
-    }
 
     const h = store.getActiveHunt();
     if (h && h.state === "running") {
@@ -70,7 +87,7 @@ world.afterEvents.playerSpawn.subscribe((event) => {
     system.run(() => {
         try {
             player.sendMessage(
-                "§6§lTreasure Hunt§r §7— type §e!team§7 to join a team, or §e!board§7 to see the leaderboard."
+                "§6§lTreasure Hunt§r §7— type §e/th:team§7 to join a team, or §e/th:board§7 to see the leaderboard."
             );
         } catch (e) {
             /* ignore */
